@@ -1,0 +1,3 @@
+El equipo fue diseñado con una disposición en dos placas. La placa base se ubica dentro del gabinete y concentra la electrónica principal del sistema, mientras que la placa superior se monta sobre la tapa e integra los elementos de interfaz con el usuario (display y pulsadores).
+
+Ambas placas se interconectan mediante un cable plano IDC de 10 vías, lo que permite una conexión ordenada, desmontable y adecuada para facilitar el montaje y mantenimiento del prototipo.
