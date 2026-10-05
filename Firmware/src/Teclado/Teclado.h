@@ -34,6 +34,11 @@ public:
 
   bool estaPresionado(Boton boton) const;
 
+  // Descarta eventos pendientes. Util al cambiar de pantalla/contexto para
+  // evitar que un click anterior se ejecute en la pantalla siguiente.
+  void limpiarEventos();
+  void limpiarEventos(Boton boton);
+
   const char* nombre(Boton boton) const;
   uint8_t pin(Boton boton) const;
 

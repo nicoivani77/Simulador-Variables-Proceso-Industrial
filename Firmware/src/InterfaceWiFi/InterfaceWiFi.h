@@ -109,6 +109,10 @@ struct InterfaceWiFiUserConfig
   bool audioEnabled = true;
   bool loggingEnabled = false;
 
+  uint16_t inputRaw4mA = 0;
+  uint16_t inputRaw20mA = 0;
+  bool inputCalibrationUpdate = false;
+
   uint16_t outputRaw4mA = 440;
   uint16_t outputRaw20mA = 4000;
   bool outputCalibrationUpdate = false;
@@ -250,6 +254,7 @@ private:
   void setupRoutes();
   void handleRoot();
   void handleStatus();
+  void handleLive();
   void handleSaveWiFi();
   void handleSaveProcessConfig();
   void handleSaveLogConfig();

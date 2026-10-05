@@ -80,7 +80,8 @@ static constexpr const char* WIFI_HOSTNAME = "simulador-pid";
 static constexpr const char* WIFI_AP_SSID  = "Simulador420_Wifi";
 static constexpr const char* WIFI_AP_PASS  = "1234";  // Aviso: WPA/WPA2 exige 8 caracteres; InterfaceWiFi levanta AP abierto si la clave es menor.
 static constexpr uint32_t WIFI_CONNECT_TIMEOUT_MS = 12000;
-static constexpr uint32_t WIFI_STATUS_SYNC_MS = 1000;
+static constexpr uint32_t WIFI_LIVE_SYNC_MS = 250;   // Variables de tendencia para la web.
+static constexpr uint32_t WIFI_STATUS_SYNC_MS = 1000; // Estado/configuración general.
 
 // ============================================================
 // OBJETOS GLOBALES
@@ -117,6 +118,7 @@ static float inputPct = 0.0f;
 static uint32_t lastControlMs = 0;
 static uint32_t lastDisplaySyncMs = 0;
 static uint32_t lastLogMs = 0;
+static uint32_t lastWiFiLiveSyncMs = 0;
 static uint32_t lastWiFiSyncMs = 0;
 static uint32_t lastSdStatusCheckMs = 0;
 
@@ -286,8 +288,9 @@ void saveSettings() {
 }
 
 bool saveInputCalibration() {
+  // Una calibracion invalida NO debe reemplazar la calibracion activa ni la
+  // persistida. Simplemente se rechaza y se conserva el ultimo par valido.
   if (!isInputCalibrationValid(inputRaw4mA, inputRaw20mA)) {
-    entrada.setCalibration(DEFAULT_INPUT_RAW_4MA, DEFAULT_INPUT_RAW_20MA);
     return false;
   }
 
@@ -661,6 +664,19 @@ void updateWiFiInterface() {
   handleWiFiUserActionRequests();
 
   const uint32_t now = millis();
+
+  // La tendencia necesita datos más recientes que el resto de la página, pero
+  // actualizar el snapshot completo cuatro veces por segundo sería innecesario.
+  // Solo copiamos IN/OUT al objeto web cada 250 ms.
+  if ((uint32_t)(now - lastWiFiLiveSyncMs) >= WIFI_LIVE_SYNC_MS) {
+    lastWiFiLiveSyncMs = now;
+    wifiInterface.setProcessPercent(menuCfg.outputEnabled,
+                                    menuCfg.manualOutputMode ? "MANUAL" : "AUTO",
+                                    outputReady ? salida.getLastOutputPct() : 0.0f,
+                                    inputPct,
+                                    sdReady ? "SD OK" : "SD FALLA");
+  }
+
   if ((uint32_t)(now - lastWiFiSyncMs) < WIFI_STATUS_SYNC_MS) {
     return;
   }
@@ -670,11 +686,6 @@ void updateWiFiInterface() {
   if (menuCfg.loggingEnabled) state += " / Captura activa";
 
   wifiInterface.setProjectState(state);
-  wifiInterface.setProcessPercent(menuCfg.outputEnabled,
-                                  menuCfg.manualOutputMode ? "MANUAL" : "AUTO",
-                                  outputReady ? salida.getLastOutputPct() : 0.0f,
-                                  inputPct,
-                                  sdReady ? "SD OK" : "SD FALLA");
 
   wifiInterface.setProcessDiagnostics(menuCfg.processPreset,
                                       menuCfg.processK,
@@ -818,6 +829,13 @@ void handleWiFiUserConfigRequests() {
   buzzer.setEnabled(menuCfg.audioEnabled);
   if (displayReady) display.setBuzzerEnabled(menuCfg.audioEnabled);
 
+  if (request.inputCalibrationUpdate &&
+      isInputCalibrationValid(request.inputRaw4mA, request.inputRaw20mA)) {
+    inputRaw4mA = request.inputRaw4mA;
+    inputRaw20mA = request.inputRaw20mA;
+    saveInputCalibration();
+  }
+
   if (request.outputCalibrationUpdate &&
       isOutputCalibrationValid(request.outputRaw4mA, request.outputRaw20mA)) {
     menuCfg.outputRaw4mA = request.outputRaw4mA;
@@ -907,11 +925,16 @@ void handleWiFiUserActionRequests() {
       break;
 
     case IFW_ACTION_CAL_INPUT_4: {
-      inputRaw4mA = entrada.captureRaw(128);
-      const bool ok = saveInputCalibration();
+      const uint16_t candidateRaw4 = entrada.captureRaw(128);
+      const bool ok = isInputCalibrationValid(candidateRaw4, inputRaw20mA);
+      if (ok) {
+        inputRaw4mA = candidateRaw4;
+        saveInputCalibration();
+        syncUserConfigSnapshotToWiFi();
+      }
       if (displayReady) {
         char msg[44];
-        snprintf(msg, sizeof(msg), ok ? "RAW 4mA=%u" : "CAL INVALIDA 4=%u", inputRaw4mA);
+        snprintf(msg, sizeof(msg), ok ? "RAW 4mA=%u" : "CAL INVALIDA 4=%u", candidateRaw4);
         menu.showMessage("CAL ENTRADA", msg, 1600);
       }
       if (menuCfg.audioEnabled) ok ? buzzer.ok() : buzzer.warning();
@@ -919,11 +942,16 @@ void handleWiFiUserActionRequests() {
     }
 
     case IFW_ACTION_CAL_INPUT_20: {
-      inputRaw20mA = entrada.captureRaw(128);
-      const bool ok = saveInputCalibration();
+      const uint16_t candidateRaw20 = entrada.captureRaw(128);
+      const bool ok = isInputCalibrationValid(inputRaw4mA, candidateRaw20);
+      if (ok) {
+        inputRaw20mA = candidateRaw20;
+        saveInputCalibration();
+        syncUserConfigSnapshotToWiFi();
+      }
       if (displayReady) {
         char msg[44];
-        snprintf(msg, sizeof(msg), ok ? "RAW 20mA=%u" : "CAL INVALIDA 20=%u", inputRaw20mA);
+        snprintf(msg, sizeof(msg), ok ? "RAW 20mA=%u" : "CAL INVALIDA 20=%u", candidateRaw20);
         menu.showMessage("CAL ENTRADA", msg, 1600);
       }
       if (menuCfg.audioEnabled) ok ? buzzer.ok() : buzzer.warning();
@@ -1742,20 +1770,30 @@ void handleMenuEvent(MenuUsuario::Event ev) {
     }
 
     case MenuUsuario::EV_CAL_INPUT_4_REQUEST: {
-      inputRaw4mA = entrada.captureRaw(128);
-      const bool ok = saveInputCalibration();
+      const uint16_t candidateRaw4 = entrada.captureRaw(128);
+      const bool ok = isInputCalibrationValid(candidateRaw4, inputRaw20mA);
+      if (ok) {
+        inputRaw4mA = candidateRaw4;
+        saveInputCalibration();
+        syncUserConfigSnapshotToWiFi();
+      }
       char msg[44];
-      snprintf(msg, sizeof(msg), ok ? "RAW 4mA=%u" : "CAL INVALIDA 4=%u", inputRaw4mA);
+      snprintf(msg, sizeof(msg), ok ? "RAW 4mA=%u" : "CAL INVALIDA 4=%u", candidateRaw4);
       menu.showMessage("CAL ENTRADA", msg, 1600);
       if (menuCfg.audioEnabled) ok ? buzzer.ok() : buzzer.warning();
       break;
     }
 
     case MenuUsuario::EV_CAL_INPUT_20_REQUEST: {
-      inputRaw20mA = entrada.captureRaw(128);
-      const bool ok = saveInputCalibration();
+      const uint16_t candidateRaw20 = entrada.captureRaw(128);
+      const bool ok = isInputCalibrationValid(inputRaw4mA, candidateRaw20);
+      if (ok) {
+        inputRaw20mA = candidateRaw20;
+        saveInputCalibration();
+        syncUserConfigSnapshotToWiFi();
+      }
       char msg[44];
-      snprintf(msg, sizeof(msg), ok ? "RAW 20mA=%u" : "CAL INVALIDA 20=%u", inputRaw20mA);
+      snprintf(msg, sizeof(msg), ok ? "RAW 20mA=%u" : "CAL INVALIDA 20=%u", candidateRaw20);
       menu.showMessage("CAL ENTRADA", msg, 1600);
       if (menuCfg.audioEnabled) ok ? buzzer.ok() : buzzer.warning();
       break;
@@ -1807,7 +1845,11 @@ void syncDisplay() {
   if (!peripheralsOn || !displayReady) return;
 
   const uint32_t now = millis();
-  if ((uint32_t)(now - lastDisplaySyncMs) < 100) return;
+  // En la pantalla principal 5 Hz es suficiente y reduce a la mitad las
+  // transferencias completas del framebuffer OLED por I2C. En menú/edición
+  // se mantienen 10 Hz para que los botones sigan respondiendo ágiles.
+  const uint32_t displaySyncIntervalMs = menu.isMain() ? 200U : 100U;
+  if ((uint32_t)(now - lastDisplaySyncMs) < displaySyncIntervalMs) return;
   lastDisplaySyncMs = now;
 
   display.setWiFiStatus(currentDisplayWiFiStatus());

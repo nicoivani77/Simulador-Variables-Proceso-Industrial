@@ -133,6 +133,20 @@ bool Teclado::estaPresionado(Boton boton) const {
   return _botones[boton].estadoEstable;
 }
 
+void Teclado::limpiarEventos() {
+  for (uint8_t i = 0; i < BTN_CANT; i++) {
+    limpiarEventos(static_cast<Boton>(i));
+  }
+}
+
+void Teclado::limpiarEventos(Boton boton) {
+  EstadoBoton &b = _botones[boton];
+  b.eventoPresionado = false;
+  b.eventoLiberado = false;
+  b.eventoClick = false;
+  b.eventoAutoRepeat = false;
+}
+
 const char* Teclado::nombre(Boton boton) const {
   switch (boton) {
     case BTN_MENU:  return "MENU";

@@ -116,6 +116,9 @@ const char* MenuUsuario::messageText() const { return _messageText; }
 
 MenuUsuario::Event MenuUsuario::handleMain(Teclado& teclado, Config& cfg) {
   if (teclado.fueClick(Teclado::BTN_MENU)) {
+    // Al cambiar de contexto descartamos eventos pendientes (por ejemplo,
+    // un ENTER liberado en la pantalla principal que nunca fue consumido).
+    teclado.limpiarEventos();
     _screen = SCREEN_MENU;
     return EV_NONE;
   }
@@ -146,6 +149,7 @@ MenuUsuario::Event MenuUsuario::handleMain(Teclado& teclado, Config& cfg) {
 
 MenuUsuario::Event MenuUsuario::handleMenu(Teclado& teclado, Config& cfg) {
   if (teclado.fueClick(Teclado::BTN_MENU)) {
+    teclado.limpiarEventos();
     _screen = SCREEN_MAIN;
     return EV_EXIT_MENU;
   }
@@ -174,7 +178,7 @@ MenuUsuario::Event MenuUsuario::handleMenu(Teclado& teclado, Config& cfg) {
       return EV_OUTPUT_MODE_CHANGED;
 
     case ITEM_MANUAL_OUTPUT:
-      // En AUTO, Manual OUT queda en tracking para evitar saltos al pasar a MANUAL.
+      // En AUTO, Valor Manual queda en tracking para evitar saltos al pasar a MANUAL.
       if (!cfg.manualOutputMode) {
         return EV_NONE;
       }
@@ -254,6 +258,7 @@ MenuUsuario::Event MenuUsuario::handleMenu(Teclado& teclado, Config& cfg) {
 
 MenuUsuario::Event MenuUsuario::handleEdit(Teclado& teclado, Config& cfg) {
   if (teclado.fueClick(Teclado::BTN_MENU)) {
+    teclado.limpiarEventos();
     _screen = SCREEN_MENU;
 
     if (_editingItem == ITEM_CAL_OUTPUT_4 || _editingItem == ITEM_CAL_OUTPUT_20) {
@@ -324,6 +329,7 @@ MenuUsuario::Event MenuUsuario::handleMessage(Teclado& teclado, Config& cfg) {
   (void)cfg;
 
   if (teclado.fueClick(Teclado::BTN_MENU) || teclado.fueClick(Teclado::BTN_ENTER)) {
+    teclado.limpiarEventos();
     _screen = SCREEN_MENU;
     return EV_NONE;
   }
@@ -592,9 +598,9 @@ void MenuUsuario::formatItemLine(Item item, const Config& cfg, char* out, size_t
       break;
     case ITEM_MANUAL_OUTPUT:
       if (cfg.manualOutputMode) {
-        snprintf(out, outSize, "Manual OUT:%3.0f%%", cfg.manualOutputPct);
+        snprintf(out, outSize, "Valor Manual:%3.0f%%", cfg.manualOutputPct);
       } else {
-        snprintf(out, outSize, "Manual OUT:TRACK");
+        snprintf(out, outSize, "Valor Manual:TRACK");
       }
       break;
     case ITEM_PROCESS_PRESET:
@@ -660,10 +666,10 @@ void MenuUsuario::formatItemLine(Item item, const Config& cfg, char* out, size_t
       snprintf(out, outSize, "Cal entrada 20mA");
       break;
     case ITEM_CAL_OUTPUT_4:
-      snprintf(out, outSize, "Cal salida 4:%u", cfg.outputRaw4mA);
+      snprintf(out, outSize, "Cal salida 4mA");
       break;
     case ITEM_CAL_OUTPUT_20:
-      snprintf(out, outSize, "Cal salida20:%u", cfg.outputRaw20mA);
+      snprintf(out, outSize, "Cal salida 20mA");
       break;
     case ITEM_EXIT:
     default:
