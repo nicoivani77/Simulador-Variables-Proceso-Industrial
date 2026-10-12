@@ -27,4 +27,4 @@ señales analógicas de 4–20 mA para el ensayo y ajuste de lazos de control.
 ## Autor
 
 Nicolas Emiliano Ivani  
-Ingeniería Electrónica – UTN
+Ingeniería Electrónica – UTN FRBB
