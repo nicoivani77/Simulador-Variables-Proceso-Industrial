@@ -409,7 +409,7 @@ void InterfaceWiFiClass::handleSaveWiFi()
   }
 
   saveCredentials(ssid, pass);
-  _server.send(200, "text/plain; charset=utf-8", "Credenciales WiFi guardadas. Reiniciá el equipo o apagá y encendé WiFi desde el menú.");
+  _server.send(200, "text/plain; charset=utf-8", "Credenciales WiFi guardadas. Apagá y encendé WiFi desde el menú.");
 }
 
 void InterfaceWiFiClass::handleSaveProcessConfig()
