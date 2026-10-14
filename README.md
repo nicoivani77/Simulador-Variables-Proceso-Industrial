@@ -17,6 +17,13 @@ señales analógicas de 4–20 mA para el ensayo y ajuste de lazos de control.
 - Calibración de entrada y salida.
 - Plataforma basada en ESP32-S3.
 
+## Versiones de programas utilzados
+
+- Hardware: Proteus v8.17 SP2
+- Firmware: Arduino IDE 2.3.10
+- Gabinete 3D: Autodesk Tinkercad (Pagina web)
+
+
 ## Estructura del repositorio
 
 - `Firmware/`: código fuente del ESP32-S3.

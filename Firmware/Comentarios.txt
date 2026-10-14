@@ -1,0 +1,1 @@
+El firmware fue diseñado en el software Arduino IDE 2.3.10
